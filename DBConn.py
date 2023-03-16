@@ -1,6 +1,7 @@
 # If you face import error try the following: python3 -m pip install psycopg2-binary
 import psycopg2
 import json
+import csv
 
 conn = psycopg2.connect(database="spotify",
                         user='postgres', password='admin123', 
@@ -17,9 +18,9 @@ cursor = conn.cursor()
 # cursor.execute(create_table_playlist)
 
 # create_table_data = '''CREATE TABLE song_data(valence numeric, year int, \
-# acousticness numeric, artists text[], danceability numeric, duration_ms numeric, \
+# acousticness numeric, artists jsonb, danceability numeric, duration_ms numeric, \
 # energy numeric, explicit int, id varchar(30) PRIMARY KEY NOT NULL, instrumentalness numeric, \
-# key int, liveness numeric, loudness numeric, mode int, name varchar(150), popularity int, \
+# key int, liveness numeric, loudness numeric, mode int, name varchar(300), popularity int, \
 # release_data varchar(20), speechiness numeric, tempo numeric);
 # '''
 # cursor.execute(create_table_data)
@@ -74,10 +75,24 @@ cursor = conn.cursor()
 # playlist_data = [(playlist["name"], playlist["num_holdouts"], playlist['pid'], playlist['num_tracks'], json.dumps(playlist['tracks'])) for playlist in data["playlists"]]
 # cursor.executemany("INSERT INTO playlist_data (name, num_holdouts, pid, num_tracks, tracks) VALUES (%s, %s, %s, %s, %s)", playlist_data)
 
-# cursor.execute("SELECT * FROM playlist_data")
+# with open('data.csv', 'r', encoding='utf-8') as file, open('song_data.csv', 'w', encoding='utf-8', newline='') as output_file:
+#     # Skip header
+#     reader = csv.reader(file)
+#     writer = csv.writer(output_file)
+#     writer.writerow(next(reader))
+#     for row in reader:
+#         row[3] = json.dumps(row[3])
+#         writer.writerow(row)
+
+# file = open('song_data.csv', 'r', encoding='utf-8')
+# ingest_data = '''COPY song_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
+# cursor.copy_expert(ingest_data, file)
+
+# Testing purposes
+# cursor.execute("SELECT * FROM song_data LIMIT 400")
 # row = cursor.fetchall()
 # for i in row:
-#     print("test")
+#     print(i)
 
 # Redo schema DO NOT TOUCH
 # cursor.execute('DROP SCHEMA public CASCADE;')
