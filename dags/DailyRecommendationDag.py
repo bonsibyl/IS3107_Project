@@ -81,6 +81,12 @@ with DAG (
         for (username, email, playlist_id) in db_data:
             results = sp.user_playlist(username, playlist_id, 'tracks')
             playlist_tracks_data = results['tracks']
+            ##### Need to add based on how we want to do our model
+
+
+
+
+            ####
             recommendation = json.dumps(model.predict(playlist_tracks_data))
 
             cursor.execute("UPDATE user_data SET recommendations = ? WHERE email = ? AND username = ?", (recommendation, email, username))
