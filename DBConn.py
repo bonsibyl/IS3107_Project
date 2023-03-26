@@ -10,83 +10,75 @@ conn = psycopg2.connect(database="spotify",
   
 conn.autocommit = True
 cursor = conn.cursor()
+create_table_user = '''CREATE TABLE IF NOT EXISTS user_data (
+    username varchar(30) PRIMARY KEY,
+    playlist_id varchar(200),
+    email varchar(100) UNIQUE NOT NULL,
+    password varchar(50) NOT NULL
+);
+'''
 
-# Created already. Here for future reference
+create_table_rec = '''CREATE TABLE IF NOT EXISTS recommendation_data (
+    username varchar(30) PRIMARY KEY REFERENCES user_data(username) ON DELETE CASCADE,
+    recommendation jsonb
+);
+'''
 
-# create_table_playlist = '''CREATE TABLE playlist_data(name varchar(80), num_holdouts int, \
-# pid int PRIMARY KEY NOT NULL, num_tracks int, tracks jsonb);'''
-# cursor.execute(create_table_playlist)
+create_table_viz = '''CREATE TABLE IF NOT EXISTS visualisation_data (
+    username varchar(30) PRIMARY KEY REFERENCES user_data(username) ON DELETE CASCADE,
+    danceability numeric,
+    energy numeric,
+    key numeric,
+    loudness numeric,
+    acousticness numeric,
+    instrumentalness numeric,
+    liveness numeric,
+    valence numeric,
+    tempo numeric,
+    most_freq_artists jsonb
+);
+'''
 
-# create_table_data = '''CREATE TABLE song_data(valence numeric, year int, \
-# acousticness numeric, artists jsonb, danceability numeric, duration_ms numeric, \
-# energy numeric, explicit int, id varchar(30) PRIMARY KEY NOT NULL, instrumentalness numeric, \
-# key int, liveness numeric, loudness numeric, mode int, name varchar(300), popularity int, \
-# release_data varchar(20), speechiness numeric, tempo numeric);
-# '''
-# cursor.execute(create_table_data)
+create_table_training = '''CREATE TABLE IF NOT EXISTS training_data (
+    valence numeric,
+    year int,
+    acousticness numeric,
+    artists jsonb,
+    danceability numeric,
+    duration_ms numeric,
+    energy numeric,
+    id varchar(50) PRIMARY KEY,
+    instrumentalness numeric,
+    key int,
+    liveness numeric,
+    loudness numeric,
+    mode int,
+    name varchar(300),
+    tempo numeric
+);
+'''
+cursor.execute(create_table_user)
+cursor.execute(create_table_rec)
+cursor.execute(create_table_viz)
+cursor.execute(create_table_training)
 
-# create_table_artist = '''CREATE TABLE artist_data(mode int, count int, acousticness numeric, \
-# artists varchar(300), danceability numeric, duration_ms numeric, energy numeric, instrumentalness numeric, \
-# liveness numeric, loudness numeric, speechiness numeric, tempo numeric, valence numeric, popularity numeric, \
-# key int);
-# '''
-# cursor.execute(create_table_artist)
+with open('Data/data.csv', 'r', encoding='utf-8') as file, open('Data/song_data.csv', 'w', encoding='utf-8', newline='') as output_file:
+    # Skip header
+    reader = csv.reader(file)
+    writer = csv.writer(output_file)
+    header = next(reader)
+    del header[15:18]
+    del header[7]
+    writer.writerow(header)
+    for row in reader:
+        del row[15:18]
+        del row[7]
+        row[3] = json.dumps(row[3])
+        writer.writerow(row)
 
-# create_table_genres = '''CREATE TABLE genre_data(mode int, genres varchar(50), \
-# acousticness numeric, danceability numeric, duration_ms numeric, energy numeric, \
-# instrumentalness numeric, liveness numeric, loudness numeric, speechiness numeric, \
-# tempo numeric, valence numeric, popularity numeric, key int);
-# '''
-# cursor.execute(create_table_genres)
-
-# create_table_year = '''CREATE TABLE year_data(mode int, year int, acousticness numeric, \
-# danceability numeric, duration_ms numeric, energy numeric, instrumentalness numeric, \
-# liveness numeric, loudness numeric, speechiness numeric, tempo numeric, valence numeric, \
-# popularity numeric, key int);
-# '''
-# cursor.execute(create_table_year)
-
-# create_table_genre_artist = '''CREATE TABLE genre_artist_data(genres text[], artists varchar(300), \
-# acousticness numeric, danceability numeric, duration_ms numeric, energy numeric, \
-# instrumentalness numeric, liveness numeric, loudness numeric, speechiness numeric, \
-# tempo numeric, valence numeric, popularity numeric, key int, mode int, count int);
-# '''
-# cursor.execute(create_table_genre_artist)
-
-# file = open('data_by_artist.csv', 'r', encoding='utf-8')
-# ingest_data = '''COPY artist_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
-# cursor.copy_expert(ingest_data, file)
-
-# file = open('data_by_genres.csv', 'r', encoding='utf-8')
-# ingest_data = '''COPY genre_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
-# cursor.copy_expert(ingest_data, file)
-
-# file = open('data_by_year.csv', 'r', encoding='utf-8')
-# ingest_data = '''COPY year_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
-# cursor.copy_expert(ingest_data, file)
-    
-# file = open('data_w_genres.csv', 'r', encoding='utf-8')
-# ingest_data = '''COPY genre_artist_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
-# cursor.copy_expert(ingest_data, file)
-
-# with open('million_data_sample.json', 'r') as file:
-#     json_data = file.read()
-# data = json.loads(json_data)
-# playlist_data = [(playlist["name"], playlist["num_holdouts"], playlist['pid'], playlist['num_tracks'], json.dumps(playlist['tracks'])) for playlist in data["playlists"]]
-# cursor.executemany("INSERT INTO playlist_data (name, num_holdouts, pid, num_tracks, tracks) VALUES (%s, %s, %s, %s, %s)", playlist_data)
-
-# with open('data.csv', 'r', encoding='utf-8') as file, open('song_data.csv', 'w', encoding='utf-8', newline='') as output_file:
-#     # Skip header
-#     reader = csv.reader(file)
-#     writer = csv.writer(output_file)
-#     writer.writerow(next(reader))
-#     for row in reader:
-#         row[3] = json.dumps(row[3])
-#         writer.writerow(row)
-
-# file = open('song_data.csv', 'r', encoding='utf-8')
-# ingest_data = '''COPY song_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
-# cursor.copy_expert(ingest_data, file)
+file = open('Data/song_data.csv', 'r', encoding='utf-8')
+ingest_data = '''COPY training_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
+cursor.copy_expert(ingest_data, file)
 
 # Testing purposes
 # cursor.execute("SELECT * FROM song_data LIMIT 400")

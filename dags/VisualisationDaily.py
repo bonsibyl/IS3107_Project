@@ -84,7 +84,7 @@ with DAG (
                                     'duration_ms', 'time_signature']]
             numerical_cols = features_df.select_dtypes(include='number')
             mean_row = numerical_cols.mean()
-            mean_row['most_freq_artist'] = features_df['first_artist'].value_counts().idxmax()
+            mean_row['most_freq_artist'] = json.dumps(features_df['first_artist'].value_counts().nlargest(5).index.tolist())
             cursor.execute('''UPDATE visualisation_data 
                               SET danceability = ?, energy = ?, key = ?, loudness = ?, acousticness = ?, instrumentalness = ?, liveness = ?, valence = ?, tempo = ?, most_freq_artist = ?
                               WHERE username = ?''', (mean_row.iloc[0]['danceability'], mean_row.iloc[0]['energy'], mean_row.iloc[0]['key'], mean_row.iloc[0]['loudness'],
