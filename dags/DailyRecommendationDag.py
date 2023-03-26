@@ -89,7 +89,7 @@ with DAG (
             ####
             recommendation = json.dumps(model.predict(playlist_tracks_data))
 
-            cursor.execute("UPDATE user_data SET recommendations = ? WHERE email = ? AND username = ?", (recommendation, email, username))
+            cursor.execute("UPDATE recommendation_data SET recommendations = ? WHERE username = ?", (recommendation, username))
         conn.close()
   
     pull_user_data = PythonOperator(
