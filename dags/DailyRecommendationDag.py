@@ -43,7 +43,7 @@ with DAG (
         conn.autocommit = True
         cursor = conn.cursor()
 
-        cursor.execute("SELECT username, email, spotify_url FROM user_data;")
+        cursor.execute("SELECT username, email, playlist_id FROM user_data;")
         db_data = cursor.fetchall()
         conn.close()
         ti.xcom_push('user_data', db_data)
