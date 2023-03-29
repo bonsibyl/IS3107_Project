@@ -94,6 +94,8 @@ with DAG (
             ref_df_scaled = scaler.fit_transform(ref_df_numeric)
             ref_df_scaled = pd.DataFrame(ref_df_scaled, columns=ref_df_numeric.columns)
             ref_df_scaled = pd.concat([ref_df_scaled, ref_df.select_dtypes(exclude=['int', 'float'])], axis=1)
+            ref_df_scaled['key'] = ref_df['key']
+            ref_df_scaled['mode'] = ref_df['mode']
             ref_df_scaled = ref_df_scaled[['valence', 'acousticness', 'artists', 'danceability',
                                        'duration_ms','energy', 'id', 'instrumentalness', 'key',
                                        'liveness', 'loudness', 'mode', 'name', 'tempo']]

@@ -2,6 +2,9 @@
 import psycopg2
 import json
 import csv
+import pandas as pd
+
+from sklearn.preprocessing import MinMaxScaler
 
 conn = psycopg2.connect(database="spotify",
                         user='postgres', password='admin123', 
@@ -62,19 +65,25 @@ cursor.execute(create_table_rec)
 cursor.execute(create_table_viz)
 cursor.execute(create_table_training)
 
-with open('Data/data.csv', 'r', encoding='utf-8') as file, open('Data/song_data.csv', 'w', encoding='utf-8', newline='') as output_file:
-    # Skip header
-    reader = csv.reader(file)
-    writer = csv.writer(output_file)
-    header = next(reader)
-    del header[15:18]
-    del header[7]
-    writer.writerow(header)
-    for row in reader:
-        del row[15:18]
-        del row[7]
-        row[3] = json.dumps(row[3])
-        writer.writerow(row)
+new_file = pd.read_csv('Data/data.csv')
+new_file = new_file.drop(columns=['explicit', 'popularity', 'release_date', 'speechiness'])
+new_file['artists'] = [json.dumps(artists) for artists in new_file['artists']]
+df_numeric = new_file.select_dtypes(include=['int', 'float'])
+
+# Create a MinMaxScaler object
+scaler = MinMaxScaler()
+# Fit and transform the DataFrame
+df_scaled = scaler.fit_transform(df_numeric)
+# Create a new Pandas DataFrame with the scaled data
+df_scaled = pd.DataFrame(df_scaled, columns=df_numeric.columns)
+
+# Combine the scaled numerical columns with the non-numerical columns
+df_scaled = pd.concat([df_scaled, new_file.select_dtypes(exclude=['int', 'float'])], axis=1)
+df_scaled['year'] = new_file['year']
+df_scaled['key'] = new_file['key']
+df_scaled['mode'] = new_file['mode']
+df_scaled = df_scaled[new_file.columns]
+df_scaled.to_csv('Data/song_data.csv', index = False)
 
 file = open('Data/song_data.csv', 'r', encoding='utf-8')
 ingest_data = '''COPY training_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
