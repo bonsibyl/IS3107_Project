@@ -65,10 +65,14 @@ with DAG (
             playlist_tracks_id = []
             playlist_tracks_titles = []
             playlist_tracks_artists = []
+            playlist_tracks_years = []
 
             for track in playlist_tracks_data['items']:
                 playlist_tracks_id.append(track['track']['id'])
                 playlist_tracks_titles.append(track['track']['name'])
+                release_date = track['album']['release_date']
+                release_year = release_date.split('-')[0]
+                playlist_tracks_years.append(release_year)
                 # adds a list of all artists involved in the song to the list of artists for the playlist
                 artist_list = []
                 for artist in track['track']['artists']:
@@ -78,10 +82,11 @@ with DAG (
             features_df = pd.DataFrame(data=features, columns=features[0].keys())
             features_df['name'] = playlist_tracks_titles
             features_df['artists'] = playlist_tracks_artists
-            features_df = features_df[['valence', 'acousticness', 'artists', 'danceability',
+            features_df['year'] = playlist_tracks_years
+            features_df = features_df[['valence','year', 'acousticness', 'artists', 'danceability',
                                        'duration_ms','energy', 'id', 'instrumentalness', 'key',
                                        'liveness', 'loudness', 'mode', 'name', 'tempo']]
-            all_playlist_data['username'] = features_df 
+            all_playlist_data[username] = features_df 
         ti.xcom_push('all_playlist_data', all_playlist_data)
 
     def cleanSpotifyData(**kwargs):
@@ -89,29 +94,27 @@ with DAG (
         all_playlist_data = ti.xcom_pull(task_ids = 'pullSpotifyPlaylist', key='all_playlist_data')
         scaler = MinMaxScaler()
         for username, audio_feat_df in all_playlist_data:
-            ref_df = all_playlist_data['username']
+            ref_df = all_playlist_data[username]
             ref_df_numeric = ref_df.select_dtypes(include=['int', 'float'])
             ref_df_scaled = scaler.fit_transform(ref_df_numeric)
             ref_df_scaled = pd.DataFrame(ref_df_scaled, columns=ref_df_numeric.columns)
             ref_df_scaled = pd.concat([ref_df_scaled, ref_df.select_dtypes(exclude=['int', 'float'])], axis=1)
+            ref_df_scaled['year'] = ref_df['year']
             ref_df_scaled['key'] = ref_df['key']
             ref_df_scaled['mode'] = ref_df['mode']
-            ref_df_scaled = ref_df_scaled[['valence', 'acousticness', 'artists', 'danceability',
+            ref_df_scaled = ref_df_scaled[['valence', 'year', 'acousticness', 'artists', 'danceability',
                                        'duration_ms','energy', 'id', 'instrumentalness', 'key',
                                        'liveness', 'loudness', 'mode', 'name', 'tempo']]
-            all_playlist_data['username'] = ref_df_scaled
+            all_playlist_data[username] = ref_df_scaled
         ti.xcom_push('cleaned_playlist_data', all_playlist_data)
 
     def retrieveMLModel(**kwargs):
         ti = kwargs['ti']
+
         s3 = boto3.client('s3')
-        buffer = BytesIO()
-
-        s3.download_fileobj('is3107', 'model', buffer)
-
-        pkl_data = buffer.getvalue()
-        model = pickle.load(pkl_data)
-
+        s3.download_file('is3107-spotify', 'model.pkl', 'model.pkl')
+        model = pickle.load(open('model.pkl', 'rb'))
+        
         ti.xcom_push('model', model)
 
 

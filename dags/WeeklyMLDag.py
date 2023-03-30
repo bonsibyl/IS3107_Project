@@ -12,6 +12,7 @@ import pickle
 import boto3
 
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import MinMaxScaler
 
 from spotipy.oauth2 import SpotifyClientCredentials
 
@@ -33,96 +34,113 @@ with DAG (
  catchup=False,
 ) as dag:
 
-    def pull_spotify_data(**kwargs):
+    def pullSpotifyPlaylist(**kwargs):
         ti = kwargs['ti']
+
+        playlist_uri = 'spotify:playlist:37i9dQZEVXbK4gjvS1FjPY' #top50Singapore
+        username = playlist_uri.split(':')[1]
+        playlist_id = playlist_uri.split(':')[2]
 
         credentials = json.load(open('../Spotify_Scrape/authorization.json'))
         client_id = credentials['client_id']
         client_secret = credentials['client_secret']
-
-        playlist_uri = 'spotify:playlist:37i9dQZEVXbK4gjvS1FjPY' #top50Singapore
-
         client_credentials_manager = SpotifyClientCredentials(client_id=client_id,client_secret=client_secret)
-
         sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-        uri = playlist_uri    # the URI is split by ':' to get the username and playlist ID
-        username = uri.split(':')[1]
-        playlist_id = uri.split(':')[2]
-        results = sp.user_playlist(username, playlist_id, 'tracks')
-        playlist_tracks_data = results['tracks']
-        ti.xcom_push('playlist_data', playlist_tracks_data)
-        ti.xcom_push('spotify_api_client', sp)
-        #### Replace above section with scraped data from spotify ####
 
-    def clean_spotify_data(**kwargs):
-        ti = kwargs['ti']
-        sp = ti.xcom_pull(task_ids = 'pull_spotify_data', key = 'playlist_data')
-        results = ti.xcom_pull(task_ids = 'pull_spotify_data', key = 'playlist_data')
+        results = sp.user_playlist(username, playlist_id, 'tracks')
         playlist_tracks_data = results['tracks']
         playlist_tracks_id = []
         playlist_tracks_titles = []
         playlist_tracks_artists = []
-        playlist_tracks_first_artists = []
+        playlist_tracks_years = []
 
         for track in playlist_tracks_data['items']:
             playlist_tracks_id.append(track['track']['id'])
             playlist_tracks_titles.append(track['track']['name'])
+            release_date = track['album']['release_date']
+            release_year = release_date.split('-')[0]
+            playlist_tracks_years.append(release_year)
             # adds a list of all artists involved in the song to the list of artists for the playlist
             artist_list = []
             for artist in track['track']['artists']:
                 artist_list.append(artist['name'])
             playlist_tracks_artists.append(artist_list)
-            playlist_tracks_first_artists.append(artist_list[0])
         features = sp.audio_features(playlist_tracks_id)
         features_df = pd.DataFrame(data=features, columns=features[0].keys())
+        features_df['name'] = playlist_tracks_titles
+        features_df['artists'] = playlist_tracks_artists
+        features_df['year'] = playlist_tracks_years
+        features_df = features_df[['valence','year', 'acousticness', 'artists', 'danceability',
+                                    'duration_ms','energy', 'id', 'instrumentalness', 'key',
+                                    'liveness', 'loudness', 'mode', 'name', 'tempo']]
+        ti.xcom_push('new_training_data', features_df)
 
-        #### Modify to match database schema
-        features_df['title'] = playlist_tracks_titles
-        features_df['first_artist'] = playlist_tracks_first_artists
-        features_df['all_artists'] = playlist_tracks_artists
-        features_df = features_df[['id', 'title', 'first_artist', 'all_artists',
-                                'danceability', 'energy', 'key', 'loudness',
-                                'mode', 'acousticness', 'instrumentalness',
-                                'liveness', 'valence', 'tempo',
-                                'duration_ms', 'time_signature']]
-        #### Modify to match database schema ####
-
-        ti.xcom_push('training_data', features_df)
-
-    def train_ML_model(**kwargs):
+    def cleanSpotifyData(**kwargs):
         ti = kwargs['ti']
-        # Pull playlist data
-        training_data = ti.xcom_pull(task_ids = 'clean_spotify_data', key = 'training_data')
+        new_training_data = ti.xcom_pull(task_ids = 'pullSpotifyPlaylist', key='new_training_data')
 
-        #DB Connection
+        scaler = MinMaxScaler()
+        ref_df_numeric = new_training_data.select_dtypes(include=['int', 'float'])
+        ref_df_scaled = scaler.fit_transform(ref_df_numeric)
+        ref_df_scaled = pd.DataFrame(ref_df_scaled, columns=ref_df_numeric.columns)
+        ref_df_scaled = pd.concat([ref_df_scaled, new_training_data.select_dtypes(exclude=['int', 'float'])], axis=1)
+        ref_df_scaled['year'] = new_training_data['year']
+        ref_df_scaled['key'] = new_training_data['key']
+        ref_df_scaled['mode'] = new_training_data['mode']
+        ref_df_scaled = ref_df_scaled[['valence', 'year', 'acousticness', 'artists', 'danceability',
+                                    'duration_ms','energy', 'id', 'instrumentalness', 'key',
+                                    'liveness', 'loudness', 'mode', 'name', 'tempo']]
+        ti.xcom_push('cleaned_playlist_data', new_training_data)
+
+    def pullTrainingData(**kwargs):
+        ti = kwargs['ti']
         conn = psycopg2.connect(database="spotify",
                         user='postgres', password='admin123', 
                         host='is3107-proj.cieo7a0vgrlz.ap-southeast-1.rds.amazonaws.com', port='5432')
-  
         conn.autocommit = True
-        cursor = conn.cursor()
 
-        # Pull db data
-        cursor.execute("SELECT * FROM song_data;")
-        db_data = cursor.fetchall()
-        db_cols = [cols[0] for cols in cursor.description]
-        db_df = pd.DataFrame(data = db_data, colums = db_cols)
+        db_data = pd.read_sql('SELECT * FROM training_data;', conn)
 
-        # Combine the two
-        combined_data = pd.concat([training_data, db_data]).drop_duplicates().reset_index(drop = True)
+        ti.xcom_push('current_training_data', db_data)
+        conn.close()
+
+    def trainMLModel(**kwargs):
+        ti = kwargs['ti']
+        # Pull playlist data
+        new_training_data = ti.xcom_pull(task_ids = 'cleanSpotifyData', key = 'cleaned_playlist_data')
+        current_training_data = ti.xcom_pull(task_ids = 'pullTrainingData', key = 'current_training_data')
+        all_training_data = pd.concat([new_training_data, current_training_data], ignore_index = True)
+        unique_training_data = all_training_data.drop_duplicates(subset='id', keep='first')
+
+        merged_data = new_training_data.merge(all_training_data, on='id', how='outer', indicator=True)
+
+        merged_data.columns = merged_data.columns.str.replace('_x', '')
+
+        new_rows = merged_data.loc[merged_data['_merge'] == 'left_only', new_training_data.columns]
 
         # Train model
-        kmeans = KMeans(n_clusters=10, n_jobs = 1).fit(combined_data)
-
+        X = unique_training_data.select_dtypes(np.number)
+        kmeans = KMeans(n_clusters=10).fit(X)
         # Pass model to xcom
         ti.xcom_push('model', kmeans)
 
         # Upload non-dup data to db
-        training_data.to_sql('song_data', conn, if_exists = 'append', index = False)
+        conn = psycopg2.connect(database="spotify",
+                user='postgres', password='admin123', 
+                host='is3107-proj.cieo7a0vgrlz.ap-southeast-1.rds.amazonaws.com', port='5432')
+        conn.autocommit = True
+        cursor = conn.cursor()
+        for _, row in new_rows.iterrows():
+            cursor.execute('''INSERT INTO training_data (valence, year, acousticness, artists,
+                                danceability, duration_ms, energy, id, instrumentalness, key, liveness, loudness,
+                                mode, name, tempo) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
+                                (row['valence'], row['year'], row['acousticness'], row['artists'], row['danceability'],
+                                row['duration_ms'], row['energy'], row['id'], row['instrumentalness'], row['key'],
+                                row['liveness'], row['loudness'], row['mode'], row['name'], row['tempo']))
         conn.close()
 
 
-    def save_ML_model(**kwargs):
+    def saveMLModel(**kwargs):
         ti = kwargs['ti']
         ### Pull model from xcom
         model = ti.xcom_pull(task_ids = 'train_ML_model', key = 'model')
@@ -131,33 +149,29 @@ with DAG (
         s3 = boto3.client('s3')
         
         ### push to s3 bucket
-        with open('model.pkl', 'wb') as file:
-            pickle.dump(model, file)
-            
-            #Add code to upload to s3 with keys
-            try:
-                response = s3.upload(file, 'is3107', 'model.pkl')
-            except Exception as e:
-                print(e)
+        pickle.dump(model, open('model.pkl', 'wb'))
+        s3.upload_file('model.pkl', 'is3107-spotify', 'model.pkl')
 
-    pull_spotify_data = PythonOperator(
-        task_id = 'pull_spotify_data',
-        python_callable = pull_spotify_data
+    pullSpotifyPlaylist = PythonOperator(
+        task_id = 'pullSpotifyPlaylist',
+        python_callable = pullSpotifyPlaylist
     )
 
-    clean_spotify_data = PythonOperator(
-        task_id = 'clean_spotify_data',
-        python_callable = clean_spotify_data
+    cleanSpotifyData = PythonOperator(
+        task_id = 'cleanSpotifyData',
+        python_callable = cleanSpotifyData
     )
 
-    train_ML_model = PythonOperator(
-        task_id = 'train_ML_model',
-        python_callable = train_ML_model
+    trainMLModel = PythonOperator(
+        task_id = 'trainMLModel',
+        python_callable = trainMLModel
     )
 
-    save_ML_model = PythonOperator(
+    saveMLModel = PythonOperator(
         task_id = 'save_ML_model',
-        python_callable = save_ML_model
+        python_callable = saveMLModel
     )
 
-    pull_spotify_data >> clean_spotify_data >> train_ML_model >> save_ML_model
+    pullSpotifyPlaylist >> cleanSpotifyData
+    cleanSpotifyData, pullTrainingData >> trainMLModel
+    trainMLModel >> saveMLModel
