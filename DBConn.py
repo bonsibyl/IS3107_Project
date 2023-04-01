@@ -57,13 +57,15 @@ create_table_training = '''CREATE TABLE IF NOT EXISTS training_data (
     loudness numeric,
     mode int,
     name varchar(300),
-    tempo numeric
+    tempo numeric,
+    cluster int DEFAULT 0   
 );
 '''
 cursor.execute(create_table_user)
 cursor.execute(create_table_rec)
 cursor.execute(create_table_viz)
 cursor.execute(create_table_training)
+cursor.execute("INSERT INTO user_data (username, playlist_id, email, password) VALUES ('test', 'https://open.spotify.com/playlist/7MFbySBZbklUth1B6MBCmF?si=2cf50b921c3641aa', 'test@test.com', 'test')")
 
 new_file = pd.read_csv('Data/data.csv')
 new_file = new_file.drop(columns=['explicit', 'popularity', 'release_date', 'speechiness'])
@@ -83,14 +85,15 @@ df_scaled['year'] = new_file['year']
 df_scaled['key'] = new_file['key']
 df_scaled['mode'] = new_file['mode']
 df_scaled = df_scaled[new_file.columns]
+df_scaled = df_scaled.assign(cluster = 0)
 df_scaled.to_csv('Data/song_data.csv', index = False)
 
 file = open('Data/song_data.csv', 'r', encoding='utf-8')
 ingest_data = '''COPY training_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
 cursor.copy_expert(ingest_data, file)
 
-# Testing purposes
-# cursor.execute("SELECT * FROM song_data LIMIT 400")
+# # Testing purposes
+# cursor.execute("SELECT * FROM training_data LIMIT 10")
 # row = cursor.fetchall()
 # for i in row:
 #     print(i)

@@ -23,6 +23,15 @@ from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from airflow.models import Variable
 
+
+# from sklearn.cluster import KMeans
+# from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+from sklearn.metrics import euclidean_distances
+from scipy.spatial.distance import cdist
+
 default_args = {
  'owner': 'airflow',
 }
@@ -49,6 +58,14 @@ with DAG (
         conn.close()
         ti.xcom_push('user_data', db_data)
 
+    def pullSongData(**kwargs):
+        ti = kwargs['ti']
+        conn = psycopg2.connect(database="spotify",
+                        user='postgres', password='admin123', 
+                        host='is3107-proj.cieo7a0vgrlz.ap-southeast-1.rds.amazonaws.com', port='5432')
+        song_data = pd.read_sql('SELECT name, artists, year, cluster FROM training_data;', conn)
+        ti.xcom_push('song_data', song_data)
+
     def pullSpotifyPlaylist(**kwargs):
         ti = kwargs['ti']
         db_data = ti.xcom_pull(task_ids = 'pullUserData', key = 'user_data')
@@ -70,7 +87,7 @@ with DAG (
             for track in playlist_tracks_data['items']:
                 playlist_tracks_id.append(track['track']['id'])
                 playlist_tracks_titles.append(track['track']['name'])
-                release_date = track['album']['release_date']
+                release_date = track['track']['album']['release_date']
                 release_year = release_date.split('-')[0]
                 playlist_tracks_years.append(release_year)
                 # adds a list of all artists involved in the song to the list of artists for the playlist
@@ -84,8 +101,8 @@ with DAG (
             features_df['artists'] = playlist_tracks_artists
             features_df['year'] = playlist_tracks_years
             features_df = features_df[['valence','year', 'acousticness', 'artists', 'danceability',
-                                       'duration_ms','energy', 'id', 'instrumentalness', 'key',
-                                       'liveness', 'loudness', 'mode', 'name', 'tempo']]
+                                        'duration_ms','energy', 'id', 'instrumentalness', 'key',
+                                        'liveness', 'loudness', 'mode', 'name', 'tempo']]
             all_playlist_data[username] = features_df 
         ti.xcom_push('all_playlist_data', all_playlist_data)
 
@@ -93,7 +110,7 @@ with DAG (
         ti = kwargs['ti']
         all_playlist_data = ti.xcom_pull(task_ids = 'pullSpotifyPlaylist', key='all_playlist_data')
         scaler = MinMaxScaler()
-        for username, audio_feat_df in all_playlist_data:
+        for username, audio_feat_df in all_playlist_data.items():
             ref_df = all_playlist_data[username]
             ref_df_numeric = ref_df.select_dtypes(include=['int', 'float'])
             ref_df_scaled = scaler.fit_transform(ref_df_numeric)
@@ -103,8 +120,8 @@ with DAG (
             ref_df_scaled['key'] = ref_df['key']
             ref_df_scaled['mode'] = ref_df['mode']
             ref_df_scaled = ref_df_scaled[['valence', 'year', 'acousticness', 'artists', 'danceability',
-                                       'duration_ms','energy', 'id', 'instrumentalness', 'key',
-                                       'liveness', 'loudness', 'mode', 'name', 'tempo']]
+                                        'duration_ms','energy', 'id', 'instrumentalness', 'key',
+                                        'liveness', 'loudness', 'mode', 'name', 'tempo']]
             all_playlist_data[username] = ref_df_scaled
         ti.xcom_push('cleaned_playlist_data', all_playlist_data)
 
@@ -121,6 +138,7 @@ with DAG (
     def makeRecommendationsAndUpdate(**kwargs):
         ti = kwargs['ti']
         cleaned_playlist_data = ti.xcom_pull(task_ids = 'cleanSpotifyData', key = 'cleaned_playlist_data')
+        song_data = ti.xcom_pull(task_ids = 'pullSongData', key = 'song_data')
         model = ti.xcom_pull(task_ids = 'retrieveMLModel', key = 'model')
 
         conn = psycopg2.connect(database="spotify",
@@ -128,16 +146,20 @@ with DAG (
                         host='is3107-proj.cieo7a0vgrlz.ap-southeast-1.rds.amazonaws.com', port='5432')
         conn.autocommit = True
         cursor = conn.cursor()
-        for username, playlist_features in cleaned_playlist_data.items():
+
+        for username, playlist_features in all_playlist_data.items():
             ##### Need to add based on how we want to do our model
-
-
-
-
+            value_vector = np.mean(playlist_features, axis = 0)
+            value_vector.drop(['year', 'duration_ms', 'key'], inplace = True)
+            adjusted_value_vector = value_vector.values.reshape(1, -1)
+            predicted_cluster = model.predict(adjusted_value_vector)
+            predicted_songs = song_data.loc[song_data['cluster']== predicted_cluster[0]].sample(n=20).values.tolist()
+            new_recommendations = list(set(map(tuple,predicted_songs)) - set(song_data))
             ####
-            recommendation = json.dumps(model.predict())
-
-            cursor.execute("UPDATE recommendation_data SET recommendations = ? WHERE username = ?", (recommendation, username))
+            cursor.execute('''INSERT INTO recommendation_data (username, recommendation)
+                        VALUES (%s, %s)
+                        ON CONFLICT (username) DO UPDATE
+                        SET recommendation = EXCLUDED.recommendation''', (username, json.dumps(new_recommendations)))
         conn.close()
   
     pullUserData = PythonOperator(
@@ -148,6 +170,11 @@ with DAG (
     pullSpotifyPlaylist = PythonOperator(
         task_id = 'pullSpotifyPlaylist',
         python_callable = pullSpotifyPlaylist
+    )
+
+    pullSongData = PythonOperator(
+        task_id = 'pullSongData',
+        python_callable = pullSongData
     )
 
     cleanSpotifyData = PythonOperator(
@@ -165,5 +192,6 @@ with DAG (
         python_callable = makeRecommendationsAndUpdate
     )
 
+    pullSongData >> makeRecommendationsAndUpdate
     pullUserData, pullSpotifyPlaylist >> cleanSpotifyData >> makeRecommendationsAndUpdate
     retrieveMLModel >> makeRecommendationsAndUpdate

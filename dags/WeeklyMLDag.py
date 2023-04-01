@@ -57,7 +57,7 @@ with DAG (
         for track in playlist_tracks_data['items']:
             playlist_tracks_id.append(track['track']['id'])
             playlist_tracks_titles.append(track['track']['name'])
-            release_date = track['album']['release_date']
+            release_date = track['track']['album']['release_date']
             release_year = release_date.split('-')[0]
             playlist_tracks_years.append(release_year)
             # adds a list of all artists involved in the song to the list of artists for the playlist
@@ -87,10 +87,11 @@ with DAG (
         ref_df_scaled['year'] = new_training_data['year']
         ref_df_scaled['key'] = new_training_data['key']
         ref_df_scaled['mode'] = new_training_data['mode']
+        ref_df_scaled = ref_df_scaled.assign(cluster = 0)
         ref_df_scaled = ref_df_scaled[['valence', 'year', 'acousticness', 'artists', 'danceability',
                                     'duration_ms','energy', 'id', 'instrumentalness', 'key',
-                                    'liveness', 'loudness', 'mode', 'name', 'tempo']]
-        ti.xcom_push('cleaned_playlist_data', new_training_data)
+                                    'liveness', 'loudness', 'mode', 'name', 'tempo', 'cluster']]
+        ti.xcom_push('cleaned_playlist_data', ref_df_scaled)
 
     def pullTrainingData(**kwargs):
         ti = kwargs['ti']
@@ -111,16 +112,15 @@ with DAG (
         current_training_data = ti.xcom_pull(task_ids = 'pullTrainingData', key = 'current_training_data')
         all_training_data = pd.concat([new_training_data, current_training_data], ignore_index = True)
         unique_training_data = all_training_data.drop_duplicates(subset='id', keep='first')
-
-        merged_data = new_training_data.merge(all_training_data, on='id', how='outer', indicator=True)
-
-        merged_data.columns = merged_data.columns.str.replace('_x', '')
-
-        new_rows = merged_data.loc[merged_data['_merge'] == 'left_only', new_training_data.columns]
+        unique_training_data['artists'] = [json.dumps(artists) for artists in unique_training_data['artists']]
 
         # Train model
         X = unique_training_data.select_dtypes(np.number)
-        kmeans = KMeans(n_clusters=10).fit(X)
+        X.drop(['duration_ms', 'key', 'cluster'], axis = 1, inplace = True)
+        kmeans = KMeans(n_clusters=10)
+        cluster_labels = kmeans.fit_predict(X)
+
+        unique_training_data['cluster'] = cluster_labels        
         # Pass model to xcom
         ti.xcom_push('model', kmeans)
 
@@ -130,13 +130,15 @@ with DAG (
                 host='is3107-proj.cieo7a0vgrlz.ap-southeast-1.rds.amazonaws.com', port='5432')
         conn.autocommit = True
         cursor = conn.cursor()
-        for _, row in new_rows.iterrows():
-            cursor.execute('''INSERT INTO training_data (valence, year, acousticness, artists,
-                                danceability, duration_ms, energy, id, instrumentalness, key, liveness, loudness,
-                                mode, name, tempo) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
-                                (row['valence'], row['year'], row['acousticness'], row['artists'], row['danceability'],
-                                row['duration_ms'], row['energy'], row['id'], row['instrumentalness'], row['key'],
-                                row['liveness'], row['loudness'], row['mode'], row['name'], row['tempo']))
+        values = unique_training_data.to_dict('records')
+
+        cursor.executemany('''
+            INSERT INTO training_data (valence, year, acousticness, artists, danceability, duration_ms, 
+                                    energy, id, instrumentalness, key, liveness, loudness, mode, name, tempo, cluster)
+            VALUES (%(valence)s, %(year)s, %(acousticness)s, %(artists)s, %(danceability)s, %(duration_ms)s, %(energy)s, 
+                    %(id)s, %(instrumentalness)s, %(key)s, %(liveness)s, %(loudness)s, %(mode)s, %(name)s, %(tempo)s, %(cluster)s)
+            ON CONFLICT (id) DO UPDATE SET cluster = excluded.cluster;
+        ''', values)
         conn.close()
 
 
