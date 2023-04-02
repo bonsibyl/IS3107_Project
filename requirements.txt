@@ -1,7 +1,6 @@
 psycopg2-binary
 postgres
 spotipy
-json
 pandas
 numpy
 scikit-learn

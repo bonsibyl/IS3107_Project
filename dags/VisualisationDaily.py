@@ -27,10 +27,10 @@ default_args = {
 }
 
 with DAG (
- 'MLWeeklyPipeline',
+ 'VisualisationDailyPipeline',
  default_args=default_args,
  description='RecDaily',
- schedule_interval= '@daily',
+ schedule_interval= None,
  start_date=datetime(2023, 2, 2),
  catchup=False,
 ) as dag:
@@ -58,7 +58,7 @@ with DAG (
         conn.autocommit = True
         cursor = conn.cursor()
 
-        credentials = json.load(open('../Spotify_Scrape/authorization.json'))
+        credentials = {"client_id": "dc329f61fb0e4f799151f42965ed6e83","client_secret": "ab55f38bf4da413ba8ba9c9af79609c2"}
         client_id = credentials['client_id']
         client_secret = credentials['client_secret']
         client_credentials_manager = SpotifyClientCredentials(client_id=client_id,client_secret=client_secret)
