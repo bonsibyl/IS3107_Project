@@ -36,7 +36,7 @@ with DAG (
     def pullSpotifyPlaylist(**kwargs):
         ti = kwargs['ti']
 
-        playlist_uri = 'spotify:playlist:37i9dQZEVXbK4gjvS1FjPY' #top50Singapore
+        playlist_uri = 'spotify:playlist:37i9dQZEVXbK4gjvS1FjPY'
         username = playlist_uri.split(':')[1]
         playlist_id = playlist_uri.split(':')[2]
 
