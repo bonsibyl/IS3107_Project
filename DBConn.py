@@ -23,7 +23,7 @@ create_table_user = '''CREATE TABLE IF NOT EXISTS user_data (
 
 create_table_rec = '''CREATE TABLE IF NOT EXISTS recommendation_data (
     username varchar(30) PRIMARY KEY REFERENCES user_data(username) ON DELETE CASCADE,
-    recommendation jsonb
+    recommendation text[], rec_explanation text[]
 );
 '''
 
@@ -65,31 +65,31 @@ cursor.execute(create_table_rec)
 cursor.execute(create_table_viz)
 cursor.execute(create_table_training)
 
-cursor.execute("INSERT INTO user_data (username, playlist_id, email, password) VALUES ('test', 'https://open.spotify.com/playlist/7MFbySBZbklUth1B6MBCmF?si=2cf50b921c3641aa', 'test@test.com', 'test')")
+# cursor.execute("INSERT INTO user_data (username, playlist_id, email, password) VALUES ('test', 'https://open.spotify.com/playlist/7MFbySBZbklUth1B6MBCmF?si=2cf50b921c3641aa', 'test@test.com', 'test')")
 
-new_file = pd.read_csv('Data/data.csv')
-new_file = new_file.drop(columns=['explicit', 'popularity', 'release_date', 'speechiness'])
-new_file['artists'] = [json.dumps(artists) for artists in new_file['artists']]
-df_numeric = new_file.select_dtypes(include=['int', 'float'])
+# new_file = pd.read_csv('Data/data.csv')
+# new_file = new_file.drop(columns=['explicit', 'popularity', 'release_date', 'speechiness'])
+# new_file['artists'] = [json.dumps(artists) for artists in new_file['artists']]
+# df_numeric = new_file.select_dtypes(include=['int', 'float'])
 
-# Create a MinMaxScaler object
-scaler = MinMaxScaler()
-# Fit and transform the DataFrame
-df_scaled = scaler.fit_transform(df_numeric)
-# Create a new Pandas DataFrame with the scaled data
-df_scaled = pd.DataFrame(df_scaled, columns=df_numeric.columns)
+# # Create a MinMaxScaler object
+# scaler = MinMaxScaler()
+# # Fit and transform the DataFrame
+# df_scaled = scaler.fit_transform(df_numeric)
+# # Create a new Pandas DataFrame with the scaled data
+# df_scaled = pd.DataFrame(df_scaled, columns=df_numeric.columns)
 
-# Combine the scaled numerical columns with the non-numerical columns
-df_scaled = pd.concat([df_scaled, new_file.select_dtypes(exclude=['int', 'float'])], axis=1)
-df_scaled['year'] = new_file['year']
-df_scaled['key'] = new_file['key']
-df_scaled['mode'] = new_file['mode']
-df_scaled = df_scaled[new_file.columns]
-df_scaled.to_csv('Data/song_data.csv', index = False)
+# # Combine the scaled numerical columns with the non-numerical columns
+# df_scaled = pd.concat([df_scaled, new_file.select_dtypes(exclude=['int', 'float'])], axis=1)
+# df_scaled['year'] = new_file['year']
+# df_scaled['key'] = new_file['key']
+# df_scaled['mode'] = new_file['mode']
+# df_scaled = df_scaled[new_file.columns]
+# df_scaled.to_csv('Data/song_data.csv', index = False)
 
-file = open('Data/song_data.csv', 'r', encoding='utf-8')
-ingest_data = '''COPY training_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
-cursor.copy_expert(ingest_data, file)
+# file = open('Data/song_data.csv', 'r', encoding='utf-8')
+# ingest_data = '''COPY training_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
+# cursor.copy_expert(ingest_data, file)
 
 # # Testing purposes
 # cursor.execute("SELECT * FROM training_data LIMIT 10")
@@ -97,7 +97,7 @@ cursor.copy_expert(ingest_data, file)
 # for i in row:
 #     print(i)
 
-# Redo schema DO NOT TOUCH
+# # Redo schema DO NOT TOUCH
 # cursor.execute('DROP SCHEMA public CASCADE;')
 # cursor.execute('CREATE SCHEMA public;')
 # cursor.execute('GRANT ALL ON SCHEMA public TO postgres;GRANT ALL ON SCHEMA public TO public;')

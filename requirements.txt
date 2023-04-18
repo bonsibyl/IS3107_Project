@@ -5,3 +5,8 @@ pandas
 numpy
 scikit-learn
 boto3
+openai
+aiohttp
+requests 
+tqdm
+typing_extensions

@@ -52,7 +52,7 @@ with DAG (
 
         create_table_rec = '''CREATE TABLE IF NOT EXISTS recommendation_data (
             username varchar(30) PRIMARY KEY REFERENCES user_data(username) ON DELETE CASCADE,
-            recommendation jsonb, rec_explanation jsonb
+            recommendation text[], rec_explanation text[]
         );
         '''
 
