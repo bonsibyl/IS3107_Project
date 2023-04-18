@@ -67,7 +67,8 @@ with DAG (
             liveness numeric,
             valence numeric,
             tempo numeric,
-            most_freq_artists jsonb
+            most_freq_artists jsonb,
+            genres jsonb
         );
         '''
 
