@@ -10,6 +10,7 @@ import numpy as np
 import psycopg2
 import pickle
 import boto3
+import collections
 
 from io import BytesIO
 
@@ -69,13 +70,15 @@ with DAG (
             playlist_tracks_data = results['tracks']
             playlist_tracks_id = []
             playlist_tracks_first_artists = []
+            playlist_tracks_genres = []
 
             for track in playlist_tracks_data['items']:
                 playlist_tracks_id.append(track['track']['id'])
                 playlist_tracks_first_artists.append(track['track']['artists'][0]['name'])
+                playlist_tracks_genres.extend(sp.artist(track['track']['artists'][0]['id'])['genres'])
+            genre_dict = json.dumps(dict(collections.Counter(playlist_tracks_genres)))
             features = sp.audio_features(playlist_tracks_id)
             features_df = pd.DataFrame(data=features, columns=features[0].keys())
-
             features_df['first_artist'] = playlist_tracks_first_artists
             features_df = features_df[['id', 'first_artist',
                                     'danceability', 'energy', 'key', 'loudness',
@@ -85,15 +88,17 @@ with DAG (
             numerical_cols = features_df.select_dtypes(include='number')
             mean_row = numerical_cols.mean()
             mean_row['most_freq_artists'] = json.dumps(features_df['first_artist'].value_counts().nlargest(5).index.tolist())
+            mean_row['genres'] = genre_dict
             print(mean_row)
-            cursor.execute('''INSERT INTO visualisation_data (username, danceability, energy, key, loudness, acousticness, instrumentalness, liveness, valence, tempo, most_freq_artists) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            cursor.execute('''INSERT INTO visualisation_data (username, danceability, energy, key, loudness, acousticness, instrumentalness, liveness, valence, tempo, most_freq_artists, genres) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (username) DO UPDATE 
                 SET danceability = EXCLUDED.danceability, energy = EXCLUDED.energy, key = EXCLUDED.key, loudness = EXCLUDED.loudness, acousticness = EXCLUDED.acousticness, 
                     instrumentalness = EXCLUDED.instrumentalness, liveness = EXCLUDED.liveness, valence = EXCLUDED.valence, tempo = EXCLUDED.tempo, 
                     most_freq_artists = EXCLUDED.most_freq_artists;''', (username, mean_row['danceability'], mean_row['energy'], mean_row['key'], mean_row['loudness'],
                     mean_row['acousticness'], mean_row['instrumentalness'], mean_row['liveness'], mean_row['valence'], 
-                    mean_row['tempo'], mean_row['most_freq_artists']))
+                    mean_row['tempo'], mean_row['most_freq_artists'], mean_row['genres']))
+
         conn.close()
   
     pull_user_data = PythonOperator(
