@@ -428,7 +428,8 @@ with DAG (
         tracks_df["id"] = tracks_df["track_uri"].apply(lambda x: re.findall(r'\w+$', x)[0])
 
         tracks_df.head()
-
+        print(len(tracks_df))
+        tracks_df = tracks_df[:100]
         tracks_feature_df = []
         print("starttqdm")
         auth_manager = SpotifyClientCredentials(
