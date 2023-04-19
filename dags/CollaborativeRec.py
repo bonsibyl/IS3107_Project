@@ -251,7 +251,7 @@ with DAG (
             sorted_recommendations = sorted(recommendations, key=lambda x: x[1], reverse=True)
             recommended_track_uris = [track_uri for track_uri, _ in sorted_recommendations[:num_recommendations]]
             print(recommended_track_uris)
-
+            rec_links = list(map(lambda x: "https://open.spotify.com/track/" + x.split(':')[2], recommended_track_uris))
             all_tracks = {}
 
             for playlist in playlists:
@@ -284,11 +284,11 @@ with DAG (
                 response = response['choices'][0]['message']['content'].strip()
                 explanations.append(response)
 
-            cursor.execute('''INSERT INTO recommendation_data (username, recommendation, rec_explanation)
+            cursor.execute('''INSERT INTO recommendation_data (username, recommendation, rec_explanation, rec_links)
                         VALUES (%s, %s, %s)
                         ON CONFLICT (username) DO UPDATE
-                        SET recommendation = EXCLUDED.recommendation, rec_explanation = EXCLUDED.rec_explanation''',
-                        (user_details[0], recommended_songs_names, explanations))
+                        SET recommendation = EXCLUDED.recommendation, rec_explanation = EXCLUDED.rec_explanation, rec_links = EXCLUDED.rec_links''',
+                        (user_details[0], recommended_songs_names, explanations, rec_links))
         conn.close()
   
     pullPlaylistData = PythonOperator(

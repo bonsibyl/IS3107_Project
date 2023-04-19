@@ -23,7 +23,7 @@ create_table_user = '''CREATE TABLE IF NOT EXISTS user_data (
 
 create_table_rec = '''CREATE TABLE IF NOT EXISTS recommendation_data (
     username varchar(30) PRIMARY KEY REFERENCES user_data(username) ON DELETE CASCADE,
-    recommendation text[], rec_explanation text[]
+    recommendation text[], rec_explanation text[], rec_links text[]
 );
 '''
 
@@ -64,6 +64,7 @@ cursor.execute(create_table_user)
 cursor.execute(create_table_rec)
 cursor.execute(create_table_viz)
 cursor.execute(create_table_training)
+cursor.execute("ALTER TABLE recommendation_data ADD COLUMN rec_links text[]")
 
 # cursor.execute("INSERT INTO user_data (username, playlist_id, email, password) VALUES ('test', 'https://open.spotify.com/playlist/7MFbySBZbklUth1B6MBCmF?si=2cf50b921c3641aa', 'test@test.com', 'test')")
 
