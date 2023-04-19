@@ -44,23 +44,23 @@ default_args = {
 }
 
 with DAG (
- 'CollaborativeRecPipeline',
+ 'MainRecPipeline',
  default_args=default_args,
  description='CollabRecDaily',
- schedule_interval= None,
+ schedule_interval= "@hourly",
  start_date=datetime(2023, 2, 2),
  catchup=False,
 ) as dag:
     
     ##################### HELPERS #########################
 
-    def get_track_features(track_uri, sp):
+    def get_track_features(track_uri,sp):
         
         track_features = []
-        
+        print("check1")
         # Audio features
         audio_features = sp.audio_features(track_uri)[0]
-        
+        print("checks")
         # Year of release
         release_date_precision = sp.track(track_uri)["album"]["release_date_precision"]
         release_date = sp.track(track_uri)["album"]["release_date"]
@@ -74,11 +74,11 @@ with DAG (
         else:
             rd = datetime.strptime(release_date, "%Y-%m-%d")
             year = rd.year
-
+        print("check2")
         # Artist genre
         artist = sp.track(track_uri)["artists"][0]["id"]
         artist_genres = sp.artist(artist)["genres"] # List
-
+        print("check3")
         # Artist and track popularity
         artist_popularity = sp.artist(artist)["popularity"]
         track_popularity = sp.track(track_uri)["popularity"]
@@ -155,7 +155,7 @@ with DAG (
 
         return recommended_playlist
     #######################################################
-
+       
 
     
     def pullUserPlaylist(**kwargs): 
@@ -209,19 +209,21 @@ with DAG (
         ti.xcom_push('all_user_playlists', all_user_playlists)
 
     def pullPlaylistData(**kwargs):
-        s3 = boto3.client('s3', aws_access_key_id="AKIAY73PMJYUU6QFJTOP", aws_secret_access_key="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")
+        s3 = boto3.client('s3',aws_access_key_id='AKIAY73PMJYUU6QFJTOP', aws_secret_access_key='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', region_name="ap-southeast-1")
         bucket_name = 'is3107-spotify'
-        response = s3.list_objects_v2(Bucket=bucket_name)
+        response = s3.list_objects_v2(Bucket=bucket_name) 
         for obj in response.get('Contents', []):
             key = obj['Key']
             if (key[-1] == '/'):
                 continue
-            s3.download_file('is3107-spotify', key, key)
+            s3.download_file('is3107-spotify', key, "/home/airflow/airflow/downloaded/" + key)
 
     def mergePlaylistData(**kwargs):
         ti = kwargs['ti']
         all_playlists = []
-        files = [f for f in os.listdir('.') if os.path.isfile(f)]
+        #files = [f for f in os.listdir('/home/airflow/airflow/downloaded/') if os.path.isfile(f)]
+        directory = '/home/airflow/airflow/downloaded/'
+        files = [os.path.join(directory, f) for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
         for file in files:
             if file.endswith('.json'):
                 # Read the second JSON file and extract the "playlists" array
@@ -236,7 +238,7 @@ with DAG (
             'playlists': all_playlists
         }
         ti.xcom_push('last_pid', all_playlists[-1]['pid'] + 1)
-        with open('combined.json', 'w') as f:
+        with open('/home/airflow/airflow/data/combined.json', 'w') as f:
             json.dump(combined_data, f)
 
     def collabPlaylistDataPreprocessing(**kwargs):
@@ -245,7 +247,7 @@ with DAG (
         min_track_frequency=10
         all_user_playlists = ti.xcom_pull(task_ids='pullUserPlaylist', key = 'all_user_playlists')
 
-        with open('combined.json', 'r') as f:
+        with open('/home/airflow/airflow/data/combined.json', 'r') as f:
             data = json.load(f)
             playlists = data['playlists']
 
@@ -282,17 +284,17 @@ with DAG (
         # playlists = list(filter(lambda x: x not in playlists_to_process_diff, playlists))
         print(len(playlists))
         print(playlists_to_process_diff)
-        playlists_to_process_diff = all_user_playlists
+        #playlists_to_process_diff = all_user_playlists
         ti.xcom_push('content_based_process', playlists_to_process_diff)
-        with open('cleaned_combined.json', 'w') as f:
+        with open('/home/airflow/airflow/data/cleaned_combined.json', 'w') as f:
             json.dump(playlists, f)
 
     def collabCreateFeatureMatrix(**kwargs):
         ti = kwargs['ti']
-        with open('cleaned_combined.json', 'r') as f:
+        with open('/home/airflow/airflow/data/cleaned_combined.json', 'r') as f:
             data = json.load(f)
             cleaned_playlist_data = data
-        os.remove('cleaned_combined.json')
+        os.remove('/home/airflow/airflow/data/cleaned_combined.json')
 
         processed_data = []
         for playlist in cleaned_playlist_data:
@@ -320,23 +322,23 @@ with DAG (
         reconstructed_utility_matrix = np.dot(np.dot(U, sigma_matrix), Vt)
 
         print("Beginning saving")
-        with open('util_matrix.npy', 'wb') as f:
+        with open('/home/airflow/airflow/data/util_matrix.npy', 'wb') as f:
             np.save(f, reconstructed_utility_matrix)
         print("finish saving")
-        feature_matrix.to_csv('feature_matrix.csv', index = False)
+        feature_matrix.to_csv('/home/airflow/airflow/data/feature_matrix.csv', index = False)
 
     def collabMakeRecommendationsAndUpdate(**kwargs):
         ti = kwargs['ti']
-        with open('util_matrix.npy', 'rb') as f:
+        with open('/home/airflow/airflow/data/util_matrix.npy', 'rb') as f:
             util_matrix = np.load(f)
-        feature_matrix = pd.read_csv('feature_matrix.csv')
-        os.remove('feature_matrix.csv')
-        os.remove('util_matrix.npy')
+        feature_matrix = pd.read_csv('/home/airflow/airflow/data/feature_matrix.csv')
+        os.remove('/home/airflow/airflow/data/feature_matrix.csv')
+        os.remove('/home/airflow/airflow/data/util_matrix.npy')
 
-        with open('combined.json', 'r') as f:
+        with open('/home/airflow/airflow/data/combined.json', 'r') as f:
             data = json.load(f)
             playlists = data['playlists']
-        os.remove('combined.json')
+        os.remove('/home/airflow/airflow/data/combined.json')
 
         conn = psycopg2.connect(database="spotify",
                 user='postgres', password='admin123', 
@@ -416,7 +418,7 @@ with DAG (
         if (len(listPlaylists) == 0):
             return
         
-        with open('combined.json', 'r') as f:
+        with open('/home/airflow/airflow/data/combined.json', 'r') as f:
             data = json.load(f)
             playlists = data['playlists']
         
@@ -428,20 +430,18 @@ with DAG (
         tracks_df["id"] = tracks_df["track_uri"].apply(lambda x: re.findall(r'\w+$', x)[0])
 
         tracks_df.head()
-        print(len(tracks_df))
-        tracks_df = tracks_df[:100]
+
         tracks_feature_df = []
-        print("starttqdm")
         auth_manager = SpotifyClientCredentials(
             client_id = "048ca22982da402e81d73f56c5b62c8f",
             client_secret = "b710d3163f0747908258356f7f4324eb"
         )
         sp = spotipy.Spotify(client_credentials_manager= auth_manager)
-
+        tracks_df = tracks_df[:50]
         for track in tqdm(tracks_df["track_uri"]):
             track_features = get_track_features(track, sp)
             tracks_feature_df.append(track_features)
-        print("endtqdm")
+
         tracks_feature_df = pd.DataFrame(tracks_feature_df)
         tracks_feature_df.head()
 
@@ -453,18 +453,20 @@ with DAG (
 
         tracks_complete_engineered = feature_engineering(tracks_complete_df)
         tracks_complete_engineered.head()
-        tracks_complete_engineered.to_csv('tracks_complete_engineered.csv', index = False)
-        tracks_df.to_csv('tracks_df.csv', index=False)
+        tracks_complete_engineered.to_csv('/home/airflow/airflow/data/tracks_complete_engineered.csv', index = False)
+        tracks_df.to_csv('/home/airflow/airflow/data/tracks_df.csv', index=False)
 
     def contentMakeRecommendationsAndUpdate(**kwargs):
         ti = kwargs['ti']
         user_playlist_map = ti.xcom_pull(task_ids="pullPlaylistData", key="content_playlist_map")
         pid_map = ti.xcom_pull(task_ids="pullPlaylistData", key="pid_map")
         listPlaylists = ti.xcom_pull(task_ids = "collabPlaylistDataPreprocessing", key = "content_based_process")
-        tracks_complete_engineered = pd.read_csv('tracks_complete_engineered.csv')
-        tracks_df = pd.read_csv('tracks_df.csv')
-        os.remove('tracks_commplete_engineered.csv')
-        os.remove('tracks_df.csv')
+        if len(listPlaylists) == 0:
+            return
+        tracks_complete_engineered = pd.read_csv('/home/airflow/airflow/data/tracks_complete_engineered.csv')
+        tracks_df = pd.read_csv('/home/airflow/airflow/data/tracks_df.csv')
+        os.remove('/home/airflow/airflow/data/tracks_commplete_engineered.csv')
+        os.remove('/home/airflow/airflow/data/tracks_df.csv')
 
         conn = psycopg2.connect(database="spotify",
                 user='postgres', password='admin123', 
@@ -475,8 +477,6 @@ with DAG (
         openai.api_key = "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"
 
         pids = [playlist['pid'] for playlist in listPlaylists]
-        if (len(listPlaylists) == 0):
-            return
 
         for (pid, user_details) in user_playlist_map.items():
             if pid not in pids:
