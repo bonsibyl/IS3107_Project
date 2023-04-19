@@ -435,7 +435,7 @@ with DAG (
             client_id = "048ca22982da402e81d73f56c5b62c8f",
             client_secret = "b710d3163f0747908258356f7f4324eb"
         )
-        sp = spotipy.Spotify(auth_manager = auth_manager)
+        sp = spotipy.Spotify(client_credentials_manager= auth_manager)
 
         for track in tqdm(tracks_df["track_uri"]):
             track_features = get_track_features(track, sp)
