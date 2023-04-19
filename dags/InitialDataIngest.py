@@ -98,7 +98,7 @@ with DAG (
 
 
     def transformSongData(**kwargs):
-        new_file = pd.read_csv('airflow/data/data.csv')
+        new_file = pd.read_csv('/home/airflow/airflow/data/data.csv')
         new_file = new_file.drop(columns=['explicit', 'popularity', 'release_date', 'speechiness'])
         new_file['artists'] = [json.dumps(artists) for artists in new_file['artists']]
         df_numeric = new_file.select_dtypes(include=['int', 'float'])
@@ -116,7 +116,7 @@ with DAG (
         df_scaled['key'] = new_file['key']
         df_scaled['mode'] = new_file['mode']
         df_scaled = df_scaled[new_file.columns]
-        df_scaled.to_csv('airflow/data/song_data.csv', index = False)
+        df_scaled.to_csv('/home/airflow/airflow/data/song_data.csv', index = False)
 
     def ingestSongData(**kwargs):
         conn = psycopg2.connect(database="spotify",
@@ -126,7 +126,7 @@ with DAG (
         conn.autocommit = True
         cursor = conn.cursor()
         
-        file = open('airflow/data/song_data.csv', 'r', encoding='utf-8')
+        file = open('/home/airflow/airflow/data/song_data.csv', 'r', encoding='utf-8')
         try:
             ingest_data = '''COPY training_data FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER ',');'''
             cursor.copy_expert(ingest_data, file)
