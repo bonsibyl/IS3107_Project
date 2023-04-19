@@ -142,7 +142,7 @@ with DAG (
 
         # Define the local directory where the JSON files are stored
         print(os.getcwd())
-        local_directory = 'airflow/data'
+        local_directory = '/home/airflow/airflow/data'
 
         # Iterate through all files in the local directory
         for file_name in os.listdir(local_directory):
