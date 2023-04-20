@@ -31,13 +31,16 @@ export default function Login() {
     const password = passwordRef.current.value;
     console.log(username, password);
 
-    const response = await fetch("http://localhost:5001/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    });
+    const response = await fetch(
+      "http://ec2-18-139-116-71.ap-southeast-1.compute.amazonaws.com:5001/login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      }
+    );
 
     if (response.ok) {
       console.log("login success");

@@ -65,7 +65,9 @@ export default function HomePage(props) {
   async function handleFetch() {
     //e.preventDefault();
     try {
-      const response = await fetch("http://localhost:5001/user_data");
+      const response = await fetch(
+        "http://ec2-18-139-116-71.ap-southeast-1.compute.amazonaws.com:5001/user_data"
+      );
       // console.log(response.status);
       // console.log(response.text());
       const jsonData = await response.json();
@@ -82,13 +84,16 @@ export default function HomePage(props) {
   async function handleSubmit() {
     const username = localStorage.getItem("user");
     console.log(username, spotifyUrl);
-    const response = await fetch("http://localhost:5001/spotifyUrl", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, spotifyUrl }),
-    });
+    const response = await fetch(
+      "http://ec2-18-139-116-71.ap-southeast-1.compute.amazonaws.com:5001/spotifyUrl",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, spotifyUrl }),
+      }
+    );
 
     if (response.ok) {
       console.log("Url updated success");

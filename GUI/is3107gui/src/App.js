@@ -20,7 +20,7 @@ function App() {
     async function fetchData() {
       try {
         const response = await fetch(
-          "http://localhost:5001/visualisation_data"
+          "http://ec2-18-139-116-71.ap-southeast-1.compute.amazonaws.com:5001/visualisation_data"
         );
         const data = await response.json();
         setVisData(data);

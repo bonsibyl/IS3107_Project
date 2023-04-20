@@ -34,7 +34,7 @@ function OurPicks() {
     if (username != null) {
       try {
         const response = await fetch(
-          `http://localhost:5001/recommendations/${username}`
+          `http://ec2-18-139-116-71.ap-southeast-1.compute.amazonaws.com:5001/recommendations/${username}`
         );
         const jsonData = await response.json();
         console.log("jsonData: ", jsonData);
