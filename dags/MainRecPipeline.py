@@ -46,7 +46,7 @@ default_args = {
 with DAG (
  'MainRecPipeline',
  default_args=default_args,
- description='CollabRecDaily',
+ description='MLRecDaily',
  schedule_interval= "@hourly",
  start_date=datetime(2023, 2, 2),
  catchup=False,
@@ -392,9 +392,9 @@ with DAG (
             
             explanations = []
 
-            try:
-                for song in recommended_songs_names:
 
+            for song in recommended_songs_names:
+                try:
                     prompt = f"This is my playlist {playlist_1}. After hearing to all the songs in my playlist, why would you recommend me the song: {song}? \
                             Act as a recommender system. Give a short one sentence explanation. \
                             Only output the explanation and nothing else. Do not mention anything along the lines of 'Based on your playlist' "
@@ -405,8 +405,8 @@ with DAG (
 
                     response = response['choices'][0]['message']['content'].strip()
                     explanations.append(response)
-            except:
-                explanations.append("Sorry! GPT3.5 is currently overloaded and cannot generate explanations.")
+                except:
+                    explanations.append("Sorry! GPT3.5 is currently overloaded and cannot generate explanations.")
 
             cursor.execute('''INSERT INTO recommendation_data (username, recommendation, rec_explanation, rec_links)
                         VALUES (%s, %s, %s, %s)
@@ -520,11 +520,10 @@ with DAG (
             playlist_1 = str(recommend_from_playlist_track_names)
             playlist_2 = str(recommendations)
             
-
-            try:
             
-                for song in recommended_songs_names:
+            for song in recommendations:
 
+                try:
                     prompt = f"This is my playlist {playlist_1}. After hearing to all the songs in my playlist, why would you recommend me the song: {song}? \
                             Act as a recommender system. Give a short one sentence explanation. \
                             Only output the explanation and nothing else. Do not mention anything along the lines of 'Based on your playlist' "
@@ -535,8 +534,8 @@ with DAG (
 
                     response = response['choices'][0]['message']['content'].strip()
                     explanations.append(response)
-            except:
-                explanations.append("Sorry! GPT3.5 is currently overloaded and cannot generate explanations.")
+                except:
+                    explanations.append("Sorry! GPT3.5 is currently overloaded and cannot generate explanations.")
 
             print(explanations)
             print(recommendations)
