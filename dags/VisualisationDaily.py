@@ -31,7 +31,7 @@ with DAG (
  'VisualisationDailyPipeline',
  default_args=default_args,
  description='RecDaily',
- schedule_interval= None,
+ schedule_interval= "@hourly",
  start_date=datetime(2023, 2, 2),
  catchup=False,
 ) as dag:
