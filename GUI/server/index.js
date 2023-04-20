@@ -33,13 +33,15 @@ app.get("/user_data", async (req, res) => {
 
 app.post("/spotifyUrl", async (req, res) => {
   const { username, url } = req.body;
-  console.log(username, url);
+  console.log(req.body);
+  console.log(req.body.spotifyUrl);
+  console.log(username);
   const result = await pool.query(
     "UPDATE user_data SET playlist_id = $1 WHERE username = $2",
-    [url, username]
+    [req.body.spotifyUrl, username]
   );
-
-  res.json({ message: "Url updated successfully" });
+  console.log(username, url);
+  res.json({ message: "Ur updated successfully" });
 });
 
 app.post("/login", async (req, res) => {
@@ -49,7 +51,7 @@ app.post("/login", async (req, res) => {
     "SELECT * FROM user_data WHERE username = $1 AND password = $2",
     [username, password]
   );
-
+	
   const user = result.rows[0];
   console.log("user: ", user);
 
@@ -88,6 +90,6 @@ app.get("/visualisation_data", async (req, res) => {
   }
 });
 
-app.listen(5001, () => {
+app.listen(5001, '0.0.0.0', () => {
   console.log("Server has started at 5001");
 });
