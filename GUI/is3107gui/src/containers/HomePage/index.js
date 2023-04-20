@@ -95,6 +95,9 @@ export default function HomePage(props) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+  	  "Access-Control-Allow-Origin": "*",
+  	  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    	  "Access-Control-Allow-Headers": "Content-Type, Authorization"
         },
         body: JSON.stringify({ username, spotifyUrl }),
       }
@@ -114,20 +117,19 @@ export default function HomePage(props) {
 
     const apiUrl =
       "http://ec2-13-213-48-227.ap-southeast-1.compute.amazonaws.com:8080/api/v1/dags/MainRecPipeline/dagRuns";
-    const headers = {
-      Authorization:
-        "Basic " + Buffer.from("airflow:airflow").toString("base64"),
-      "Content-Type": "application/json",
+    const headersair = {
+      "Authorization": "Basic " + btoa("airflow" + ":" + "airflow"),
+      "Content-Type": "application/json"
     };
     const data = {
-      conf: {}, // any configuration you want to pass to your DAG
-      replace_microseconds: false, // optional
+      "conf": {}, // any configuration you want to pass to your DAG
+      "replace_microseconds": false, // optional
     };
-
+    console.log(headersair)
     const responseAirflow = await fetch(apiUrl, {
       method: "POST",
-      headers,
-      body: JSON.stringify(data),
+      headers: headersair,
+      body: JSON.stringify({})
     });
     console.log(await response.json());
   }
