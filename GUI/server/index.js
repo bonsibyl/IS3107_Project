@@ -41,7 +41,7 @@ app.post("/spotifyUrl", async (req, res) => {
     [req.body.spotifyUrl, username]
   );
   console.log(username, url);
-  res.json({ message: "Ur updated successfully" });
+  res.json({ message: "Url updated successfully" });
 });
 
 app.post("/login", async (req, res) => {
