@@ -87,6 +87,8 @@ export default function HomePage(props) {
   async function handleSubmit() {
     const username = localStorage.getItem("user");
     console.log(username, spotifyUrl);
+    const test = JSON.stringify({ username, spotifyUrl });
+    console.log(test);
     const response = await fetch(
       "http://ec2-18-139-116-71.ap-southeast-1.compute.amazonaws.com:5001/spotifyUrl",
       {
