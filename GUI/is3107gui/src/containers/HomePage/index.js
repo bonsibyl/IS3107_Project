@@ -23,6 +23,9 @@ import { ReactElement } from "react";
 import FetchData from "../../components/FetchData";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../client";
+// import { Buffer } from "buffer";
+const fetch = require("node-fetch");
+global.Buffer = global.Buffer || require("buffer").Buffer;
 
 interface FeatureProps {
   text: string;
@@ -106,6 +109,25 @@ export default function HomePage(props) {
       alert("Invalid url");
       navigate("/");
     }
+
+    const apiUrl =
+      "http://ec2-13-213-48-227.ap-southeast-1.compute.amazonaws.com:8080/api/v1/dags/MainRecPipeline/dagRuns";
+    const headers = {
+      Authorization:
+        "Basic " + Buffer.from("airflow:airflow").toString("base64"),
+      "Content-Type": "application/json",
+    };
+    const data = {
+      conf: {}, // any configuration you want to pass to your DAG
+      replace_microseconds: false, // optional
+    };
+
+    const responseAirflow = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(data),
+    });
+    console.log(await response.json());
   }
 
   return (
@@ -120,7 +142,10 @@ export default function HomePage(props) {
             <Flex>
               <Input
                 value={spotifyUrl}
-                onChange={(event) => setSpotifyUrl(event.target.value)}
+                onChange={(event) => {
+                  console.log(event);
+                  setSpotifyUrl(event.target.value);
+                }}
                 placeholder="Enter playlist url here"
                 size="md"
               />

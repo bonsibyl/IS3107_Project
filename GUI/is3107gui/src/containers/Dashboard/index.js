@@ -321,8 +321,8 @@ function Dashboard(props) {
           <TagCloud
             tags={cloudData}
             renderer={customRenderer}
-            minSize={4}
-            maxSize={9}
+            minSize={3}
+            maxSize={7}
           />
           <style>
             {`@keyframes blinker {
@@ -393,7 +393,7 @@ function Dashboard(props) {
           <h1 style={{ fontSize: "30px", fontFamily: "Berlin Sans FB" }}>
             This is how you have been grooving...
           </h1>
-          <Bar options={barOptions} data={barData} />;
+          <Bar options={barOptions} data={barData} />
         </GridItem>
       </Grid>
     </Box>
