@@ -48,7 +48,7 @@ username: airflow
 password: airflow
 
 # Contributors
-* Chelsea: 
+* Chelsea: https://github.com/chelseayap02
 * Chris: https://github.com/chrischanwz
 * Nathaniel: https://github.com/Nat-Han1999
 * Qian Yi: https://github.com/qianyiloh 
