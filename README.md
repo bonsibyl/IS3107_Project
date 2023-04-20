@@ -25,10 +25,10 @@ Overall, our project aims to address these issues and provide a user experience 
 # Technologies
 
 * Stack
- * Machine Learning - Python
- * Workflow Orchestration - Apache Airflow
- * Data Lake/ Databse - AWS EC2, S3, RDS
- * User Interface - React JS
+  * Machine Learning - Python
+  * Workflow Orchestration - Apache Airflow
+  * Data Lake/ Databse - AWS EC2, S3, RDS
+  * User Interface - React JS
 
 * Language
   * Python
@@ -49,7 +49,7 @@ password: airflow
 
 # Contributors
 * Chelsea: 
-* Chris:
+* Chris: https://github.com/chrischanwz
 * Nathaniel: https://github.com/Nat-Han1999
 * Qian Yi: https://github.com/qianyiloh 
 * Wei Yang: https://github.com/bonsibyl
