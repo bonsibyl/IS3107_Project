@@ -180,9 +180,12 @@ with DAG (
         content_playlist_map = {}
         pid = ti.xcom_pull(task_ids='mergePlaylistData', key = 'last_pid')
         for (username, email, playlist_id) in db_data:
-            results = sp.user_playlist(None, playlist_id, 'tracks')
+            print(playlist_id)
+            if (playlist_id == None):
+                continue
+            results = sp.playlist(playlist_id)
             playlist_tracks_data = results['tracks']
-            content_playlist_map['pid'] = (username, playlist_tracks_data,)
+            content_playlist_map[pid] = (username, playlist_tracks_data,)
             user_playlist = {'name': None, 'pid': None, 'tracks': []}
             pos = 0
             user_playlist['name'] = playlist_tracks_data['href']
@@ -204,6 +207,7 @@ with DAG (
         print(pid_map)
         print(db_data)
         print(all_user_playlists)
+        print(content_playlist_map)
         ti.xcom_push('content_playlist_map', content_playlist_map)
         ti.xcom_push('pid_map', pid_map)
         ti.xcom_push('all_user_playlists', all_user_playlists)
@@ -284,7 +288,7 @@ with DAG (
         # playlists = list(filter(lambda x: x not in playlists_to_process_diff, playlists))
         print(len(playlists))
         print(playlists_to_process_diff)
-        #playlists_to_process_diff = all_user_playlists
+        playlists_to_process_diff = all_user_playlists
         ti.xcom_push('content_based_process', playlists_to_process_diff)
         with open('/home/airflow/airflow/data/cleaned_combined.json', 'w') as f:
             json.dump(playlists, f)
@@ -437,7 +441,7 @@ with DAG (
             client_secret = "b710d3163f0747908258356f7f4324eb"
         )
         sp = spotipy.Spotify(client_credentials_manager= auth_manager)
-        tracks_df = tracks_df[:50]
+        tracks_df = tracks_df[:100]
         for track in tqdm(tracks_df["track_uri"]):
             track_features = get_track_features(track, sp)
             tracks_feature_df.append(track_features)
@@ -458,14 +462,15 @@ with DAG (
 
     def contentMakeRecommendationsAndUpdate(**kwargs):
         ti = kwargs['ti']
-        user_playlist_map = ti.xcom_pull(task_ids="pullPlaylistData", key="content_playlist_map")
+        user_playlist_map = ti.xcom_pull(task_ids="pullUserPlaylist", key="content_playlist_map")
         pid_map = ti.xcom_pull(task_ids="pullPlaylistData", key="pid_map")
         listPlaylists = ti.xcom_pull(task_ids = "collabPlaylistDataPreprocessing", key = "content_based_process")
+        print(listPlaylists)
         if len(listPlaylists) == 0:
             return
         tracks_complete_engineered = pd.read_csv('/home/airflow/airflow/data/tracks_complete_engineered.csv')
         tracks_df = pd.read_csv('/home/airflow/airflow/data/tracks_df.csv')
-        os.remove('/home/airflow/airflow/data/tracks_commplete_engineered.csv')
+        os.remove('/home/airflow/airflow/data/tracks_complete_engineered.csv')
         os.remove('/home/airflow/airflow/data/tracks_df.csv')
 
         conn = psycopg2.connect(database="spotify",
@@ -477,9 +482,10 @@ with DAG (
         openai.api_key = "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"
 
         pids = [playlist['pid'] for playlist in listPlaylists]
-
+        print (pids)
         for (pid, user_details) in user_playlist_map.items():
-            if pid not in pids:
+            print(pid)
+            if int(pid) not in pids:
                 continue
             username = user_details[0]
             user_playlist_tracks = user_details[1]
@@ -507,7 +513,8 @@ with DAG (
             explanations = []
 
             recommend_from_playlist_track_names = []
-            for index, row in user_playlist.iterrows():
+            for index, row in new_playlist.iterrows():
+                print(row)
                 recommend_from_playlist_track_names.append(row['track_name'] + ' by ' + row['artist_name'])
 
             playlist_1 = str(recommend_from_playlist_track_names)

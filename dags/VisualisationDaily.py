@@ -66,6 +66,8 @@ with DAG (
         sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
         for (username, email, playlist_id) in db_data:
+            if playlist_id == None:
+                continue
             results = sp.user_playlist(username, playlist_id, 'tracks')
             playlist_tracks_data = results['tracks']
             playlist_tracks_id = []
