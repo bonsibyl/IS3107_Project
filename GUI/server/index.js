@@ -6,7 +6,11 @@ const pool = require("./db");
 
 app.use(cors());
 app.use(express.json());
-
+app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
 // var connectionString =
 //   "postgres://postgres:admin123@is3107-proj.cieo7a0vgrlz.ap-southeast-1.rds.amazonaws.com:5432/spotify";
 // var pgClient = new pg.Client(connectionString);
