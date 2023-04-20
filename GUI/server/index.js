@@ -38,7 +38,7 @@ app.post("/spotifyUrl", async (req, res) => {
     "UPDATE user_data SET playlist_id = $1 WHERE username = $2",
     [url, username]
   );
-
+  console.log(username, url);
   res.json({ message: "Url updated successfully" });
 });
 
