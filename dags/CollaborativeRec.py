@@ -180,6 +180,8 @@ with DAG (
         content_playlist_map = {}
         pid = ti.xcom_pull(task_ids='mergePlaylistData', key = 'last_pid')
         for (username, email, playlist_id) in db_data:
+            if playlist_id == None:
+                continue
             results = sp.user_playlist(None, playlist_id, 'tracks')
             playlist_tracks_data = results['tracks']
             content_playlist_map['pid'] = (username, playlist_tracks_data,)
